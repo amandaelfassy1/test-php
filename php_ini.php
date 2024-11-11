@@ -1,75 +1,104 @@
 <?php
+
 include_once 'datas.php';
 
-$actors = Datas::getActors();
-$actress = Datas::getActress();
-$movies = Datas::MOVIES;
-
-$selectedActor = "Kate Winslet"; 
-$showSpecific = true; 
-
-foreach($actors as $actor){
-    $allactors[]= $actor;
-}
-foreach($actress as $oneactress){
-    $allactors[]= $oneactress;
+function getAllPersonalityNames(): array {
+    $allNames = array_merge(Datas::getActors(), Datas::getActress());
+    sort($allNames);
+    return $allNames;
 }
 
-sort($allactors);
+function shouldDisplayPersonality(string $name, ?string $selectedName): bool {
+    return is_null($selectedName) || $name === $selectedName;
+}
 
-function getInitials($name) {
+function generateInitialsMap(): array {
+    $initialsMap = [];
+    foreach (Datas::MOVIES as $initials => $movies) {
+        foreach (getAllPersonalityNames() as $name) {
+            if (generateInitials($name) === $initials || $initials === getSpecialCaseInitials($name)) {
+                $initialsMap[$name] = $initials;
+            }
+        }
+    }
+    return $initialsMap;
+}
+
+function generateInitials(string $name): string {
     $parts = explode(" ", $name);
-    $initials = "";
+    $initials = '';
     foreach ($parts as $part) {
-        $initials .= $part[0]; 
+        $initials .= strtoupper($part[0]);
     }
     return $initials;
 }
 
-function getImagePath($name) {
-    $formattedName = strtolower(str_replace(' ', '_', $name));
-    return "img/{$formattedName}.jpg"; 
+function getSpecialCaseInitials(string $name): ?string {
+    $specialCases = [
+        'Kate Winslet' => 'kW',
+    ];
+    return $specialCases[$name] ?? null;
 }
 
-echo "<div class='actor-list'>"; 
-if ($showSpecific) {
+function getImageFilePath(string $name): string {
+    $formattedName = strtolower(str_replace(' ', '_', $name));
+    return "img/{$formattedName}.jpg";
+}
 
-foreach ($allactors as $allactor) {
-    $class = 'actress';
-    foreach ($actors as $actor) {
-        if ($actor === $allactor) {
-            $class = 'actor';
-        }
-    }
+function getRoleClass(string $name): string {
+    return in_array($name, Datas::getActors()) ? 'actor' : 'actress';
+}
 
-    $initials = getInitials($allactor);
-    $imagePath = getImagePath($allactor); 
+function displayPersonalityCard(string $name, array $initialsMap): string {
+    $cardHtml = [];
+    $cardHtml[] = "<div class='card " . getRoleClass($name) . "'>";
+    $cardHtml[] = "<div class='card-inner'>";
+    $cardHtml[] = "<div class='card-front'>";
+    $cardHtml[] = "<h2>{$name}</h2>";
+    $cardHtml = appendMoviesSection($cardHtml, $name, $initialsMap);
+    $cardHtml[] = "</div>"; 
+    $cardHtml = appendImageSection($cardHtml, $name);
+    $cardHtml[] = "</div>";
+    $cardHtml[] = "</div>";
+    return implode('', $cardHtml);
+}
 
-    echo "<div class='card {$class}'>";
-    echo "<div class='card-inner'>"; 
-    echo "<div class='card-front'>"; 
-    echo "<h2>{$allactor}</h2>";
-    if ($allactor === "Kate Winslet") {
-        $initials = "kW"; // je sais c'est nul mais pour l'instant j'ai pas réussi autrement => A CHANGER 
-    }
-    if (array_key_exists($initials, $movies)) {
-        
-        krsort($movies[$initials]);
-
-        foreach ($movies[$initials] as $year => $title) {
-            echo "<strong class='film'>{$title} ({$year})</strong>";
+function appendMoviesSection(array $html, string $name, array $initialsMap): array {
+    $initials = $initialsMap[$name] ?? generateInitials($name);
+    if (isset(Datas::MOVIES[$initials])) {
+        $movies = Datas::MOVIES[$initials];
+        krsort($movies);
+        foreach ($movies as $year => $title) {
+            $html[] = formatMovieHtml($year, $title);
         }
     } else {
-        echo "<p class='film'>Aucun film enregistré.</p>";
+        $html[] = "<p class='film'>Aucun film enregistré.</p>";
     }
-    echo "</div>"; 
-    echo "<div class='card-back'>"; 
-        echo "<img src='{$imagePath}' alt='{$allactor}' />"; 
-    echo "</div>"; 
+    return $html;
+}
 
-    echo "</div>";
-    echo "</div>"; 
+function formatMovieHtml(int $year, string $title): string {
+    return "<strong class='film'>{$title} ({$year})</strong>";
 }
+
+function appendImageSection(array $html, string $name): array {
+    $html[] = "<div class='card-back'>";
+    $html[] = "<img src='" . getImageFilePath($name) . "' alt='{$name}' />";
+    $html[] = "</div>";  
+    return $html;
 }
-echo "</div>"; 
+
+$selectedPersonality = null;  
+// $selectedPersonality = "Kate Winslet"; 
+$personalities = getAllPersonalityNames();
+$initialsMap = generateInitialsMap();  
+
+echo "<div class='actor-list'>";
+foreach ($personalities as $name) {
+    if (shouldDisplayPersonality($name, $selectedPersonality)) {
+        echo displayPersonalityCard($name, $initialsMap);
+    }
+}
+echo "</div>";
+
 ?>
